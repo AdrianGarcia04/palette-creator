@@ -3,6 +3,7 @@ import cv2 as cv
 import sys
 from random import randint
 import centroid
+import cluster as clst
 
 def main():
     # Reading image
@@ -31,13 +32,16 @@ def main():
         print('\n')
         i += 1
 
-    assocPointsToCentroids(img, dummy, centroids)
+    # Creating clusters
+    clusters = createClusters(img, dummy, centroids)
 
-    # Displaying image
-    cv.imshow('image', dummy)
-    print('Press any key to exit...')
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    # Changing clusters' color as the same of their centroid
+    for cluster in clusters:
+        for (x, y) in cluster.points:
+            dummy[x, y] = (cluster.centroid.red, cluster.centroid.green, cluster.centroid.blue)
+
+    # Do something with the result
+    workImage(dummy)
 
 def randomCentroids(img, k):
     imgRows = img.shape[0]
@@ -53,7 +57,11 @@ def randomCentroids(img, k):
 
     return centroids
 
-def assocPointsToCentroids(img, dummy, centroids):
+def createClusters(img, dummy, centroids):
+    clusters = []
+    for centroid in centroids:
+        clusters.append(clst.Cluster(centroid))
+
     for x in range(0, img.shape[0]):
         for y in range(0, img.shape[1]):
             # RGB values in (x, y)
@@ -72,13 +80,23 @@ def assocPointsToCentroids(img, dummy, centroids):
                 dist = (redDiff)**2 + (greenDiff)**2 + (blueDiff)**2
                 distances.append(dist)
 
-            # Corresponding centroid
+            # Corresponding cluster
             minDistCluster = distances.index(min(distances))
-            centroid = centroids[minDistCluster]
+            cluster = clusters[minDistCluster]
 
-            centroid.assoc((x, y))
+            cluster.addPoint(x, y, (red, green, blue))
 
-            dummy[x, y] = (centroid.red, centroid.green, centroid.blue)
+    return clusters
 
+def workImage(img):
+    if sys.argv[3] == 'sv':
+        # Saving image
+        cv.imwrite(str(sys.argv[4]) + '.png' or 'res.png', img)
+    elif sys.argv[3] == 'sh':
+        # Displaying image
+        cv.imshow('image', dummy)
+        print('Press any key to exit...')
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
 main()

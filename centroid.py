@@ -6,7 +6,3 @@ class Centroid:
         self.red = rgb[0]
         self.green = rgb[1]
         self.blue = rgb[2]
-        self.points = []
-
-    def assoc(self, point):
-        self.points.append(point)
