@@ -4,13 +4,17 @@ import sys
 from random import randint
 import centroid
 import cluster as clst
+import point
+from operator import attrgetter
 
 def main():
     # Reading image
     img = cv.imread(sys.argv[1])
 
     # Dummy image for reference
-    dummy = np.zeros((img.shape[0], img.shape[1], 3), np.uint8)
+    dummy = np.zeros((img.shape[0] + 50, img.shape[1] + 20, 3), np.uint8)
+    # Make white
+    dummy[0:img.shape[0] + 50, 0:img.shape[1] + 20] = (255, 255, 255)
 
     # Number of centroids
     k = int(sys.argv[2])
@@ -18,27 +22,34 @@ def main():
 
     # Image rows, cols and channels
     print('(rows, cols, channels): ' + str(img.shape))
+    print('Pixels: ' + str(img.shape[0] * img.shape[1]))
 
     # Get random centroids
     centroids = randomCentroids(img, k)
 
-    i = 1
-    for centroid in centroids:
-        print('C' + str(i))
-        # Centroid coordinates
-        print('(%d, %d)' % (centroid.x, centroid.y))
-        # and its respective colors
-        print(img[centroid.x, centroid.y])
-        print('\n')
-        i += 1
-
     # Creating clusters
+    print('Creating clusters...\n')
     clusters = createClusters(img, dummy, centroids)
 
-    # Changing clusters' color as the same of their centroid
+    print('Reasigning centroids...\n')
+    reasignCentroids(clusters)
+
+    print('Making palette...\n')
+    dummy[10:10 + img.shape[0], 10:10 + img.shape[1]] = img[0:img.shape[0], 0:img.shape[1]]
+    sep = 10
+    gaps = 0
+    x = 0
+    rectWidth = (img.shape[1] + 20 - (sep * (k + 1))) / k
     for cluster in clusters:
-        for (x, y) in cluster.points:
-            dummy[x, y] = (cluster.centroid.red, cluster.centroid.green, cluster.centroid.blue)
+        x += sep
+        xFrom = x
+        xTo = x + rectWidth
+        yFrom = 10 + img.shape[0] + 5
+        yTo = yFrom + 25
+
+        dummy[yFrom:yTo, xFrom:xTo] = cluster.centroid.rgb
+
+        x = xTo
 
     # Do something with the result
     workImage(dummy)
@@ -84,9 +95,39 @@ def createClusters(img, dummy, centroids):
             minDistCluster = distances.index(min(distances))
             cluster = clusters[minDistCluster]
 
-            cluster.addPoint(x, y, (red, green, blue))
+            p = point.Point(x, y, (red, green, blue))
+
+            cluster.addPoint(p)
 
     return clusters
+
+def reasignCentroids(clusters):
+    i = 0
+    for cluster in clusters:
+        print('Reasigning in C' + str(i) + '...')
+        print('Previous centroid: ' + str(cluster.centroid))
+        print('Points to check: ' + str(len(cluster.points)))
+
+        j = 1
+        for pi in cluster.points:
+            percent = j * 100 / float(len(cluster.points))
+            remPoints = len(cluster.points) - j
+            sys.stdout.write("Remaning points: %d - %.2f%%\r" % (remPoints, percent) )
+            sys.stdout.flush()
+            for pj in cluster.points:
+                redDiff = int(pi.red) - int(pj.red)
+                greenDiff = int(pi.green) - int(pj.green)
+                blueDiff = int(pi.blue) - int(pj.blue)
+                pi.distSum += (redDiff)**2 + (greenDiff)**2 + (blueDiff)**2
+            j += 1
+
+        mindDist = min(cluster.points, key=attrgetter('distSum'))
+        index = cluster.points.index(mindDist) if mindDist in cluster.points else -1
+        newCentroid = cluster.points[index]
+
+        cluster.centroid = centroid.Centroid(newCentroid.x, newCentroid.y, newCentroid.rgb)
+        print('New centroid: ' + str(cluster.centroid) + '\n')
+        i += 1
 
 def workImage(img):
     if sys.argv[3] == 'sv':
