@@ -5,24 +5,59 @@ from random import randint
 import centroid
 import cluster as clst
 import point
-from operator import attrgetter
+import argparse
 
-def main():
+def defineArgs():
+    parser = argparse.ArgumentParser(
+        description='simple script to find dominant colors in an image'
+    )
+
+    parser.add_argument('image', help='the image to process')
+
+    parser.add_argument(
+        '-k',
+        help='number of means to search',
+        type=int,
+        default=3,
+    )
+
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument(
+        '-o', '--output',
+        help='save palette in specified route',
+        default='output',
+    )
+
+    action.add_argument(
+        '-s', '--show',
+        help='show palette on screen',
+        action='store_true'
+    )
+
+    parser.add_argument(
+        '-d', '--diff',
+        help='max difference between RGB values to tell if mean is correct',
+        type=int,
+        default=5
+    )
+
+    return parser.parse_args()
+
+def main(args):
 
     # Reading image
-    img = cv.imread(sys.argv[1])
+    img = cv.imread(args.image)
 
     # Dummy image for reference
     dummy = np.zeros((img.shape[0] + 50, img.shape[1] + 20, 3), np.uint8)
     # Make white
     dummy[0:img.shape[0] + 50, 0:img.shape[1] + 20] = (255, 255, 255)
 
-    # Number of centroids
-    k = int(sys.argv[2])
-    print('k-centroids: %d' % (k))
+    # K-means
+    k = args.k
 
     # Max difference between RGB values to tell if the found mean is correct
-    MAX_DIFF_RGB = int(sys.argv[5]) or 10
+    diff = args.diff
 
     # Image rows, cols and channels
     print('(rows, cols, channels): ' + str(img.shape))
@@ -39,7 +74,7 @@ def main():
         clusters = createClusters(img, dummy, centroids)
 
         print('Reasigning centroids...\n')
-        centroidsFound = centroidsFound or reasignCentroids(clusters, MAX_DIFF_RGB)
+        centroidsFound = centroidsFound or reasignCentroids(clusters, diff)
 
         newCentroids = []
         for cluster in clusters:
@@ -65,7 +100,7 @@ def main():
         x = xTo
 
     # Do something with the result
-    workImage(dummy)
+    workImage(dummy, args)
 
 def randomCentroids(img, k):
     imgRows = img.shape[0]
@@ -155,15 +190,15 @@ def reasignCentroids(clusters, diff):
 
     return centroidsDone == len(clusters)
 
-def workImage(img):
-    if sys.argv[3] == 'sv':
+def workImage(img, args):
+    if args.show is None:
         # Saving image
-        cv.imwrite(str(sys.argv[4]) + '.png' or 'res.png', img)
-    elif sys.argv[3] == 'sh':
+        cv.imwrite(args.output + '.png', img)
+    else:
         # Displaying image
-        cv.imshow('image', dummy)
+        cv.imshow('image', img)
         print('Press any key to exit...')
         cv.waitKey(0)
         cv.destroyAllWindows()
 
-main()
+main(defineArgs())
