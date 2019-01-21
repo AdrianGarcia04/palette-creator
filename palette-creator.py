@@ -41,17 +41,29 @@ def defineArgs():
         default=5
     )
 
+    parser.add_argument(
+        '-r', '--resize',
+        help='number of pixels of image to process',
+        type=int,
+        default=500
+    )
+
     return parser.parse_args()
 
 def main(args):
 
     # Reading image
-    img = cv.imread(args.image)
+    toProcess = cv.imread(args.image)
+    original = cv.imread(args.image)
+
+
+    if toProcess.shape[0] > args.resize or toProcess.shape[1] > args.resize:
+        toProcess = resize(toProcess, args.resize)
 
     # Dummy image for reference
-    dummy = np.zeros((img.shape[0] + 50, img.shape[1] + 20, 3), np.uint8)
+    dummy = np.zeros((original.shape[0] + 50, original.shape[1] + 20, 3), np.uint8)
     # Make white
-    dummy[0:img.shape[0] + 50, 0:img.shape[1] + 20] = (255, 255, 255)
+    dummy[0:original.shape[0] + 50, 0:original.shape[1] + 20] = (255, 255, 255)
 
     # K-means
     k = args.k
@@ -60,18 +72,18 @@ def main(args):
     diff = args.diff
 
     # Image rows, cols and channels
-    print('(rows, cols, channels): ' + str(img.shape))
-    print('Pixels: ' + str(img.shape[0] * img.shape[1]))
+    print('(rows, cols, channels): ' + str(toProcess.shape))
+    print('Pixels: ' + str(toProcess.shape[0] * toProcess.shape[1]))
 
     # Get random centroids
-    centroids = randomCentroids(img, k)
+    centroids = randomCentroids(toProcess, k)
 
     centroidsFound = False
 
     while not centroidsFound:
         # Creating clusters
         print('Creating clusters...\n')
-        clusters = createClusters(img, dummy, centroids)
+        clusters = createClusters(toProcess, centroids)
 
         print('Reasigning centroids...\n')
         centroidsFound = centroidsFound or reasignCentroids(clusters, diff)
@@ -83,16 +95,16 @@ def main(args):
 
 
     print('Making palette...\n')
-    dummy[10:10 + img.shape[0], 10:10 + img.shape[1]] = img[0:img.shape[0], 0:img.shape[1]]
+    dummy[10:10 + original.shape[0], 10:10 + original.shape[1]] = original[0:original.shape[0], 0:original.shape[1]]
     sep = 10
     gaps = 0
     x = 0
-    rectWidth = (img.shape[1] + 20 - (sep * (k + 1))) / k
+    rectWidth = (original.shape[1] + 20 - (sep * (k + 1))) / k
     for cluster in clusters:
         x += sep
         xFrom = x
         xTo = x + rectWidth
-        yFrom = 10 + img.shape[0] + 5
+        yFrom = 10 + original.shape[0] + 5
         yTo = yFrom + 25
 
         dummy[yFrom:yTo, xFrom:xTo] = cluster.centroid.rgb
@@ -101,6 +113,25 @@ def main(args):
 
     # Do something with the result
     workImage(dummy, args)
+
+def resize(img, desiredDim):
+    dimensions = (img.shape[0], img.shape[1])
+    biggest = max(dimensions)
+    smallest = min(dimensions)
+
+    ratio = smallest / float(biggest)
+
+    difference = biggest - desiredDim
+
+    toSubstract = difference * ratio
+
+    newSize = (biggest - difference, int(smallest - toSubstract))
+
+    print('Image resized from ' + str(dimensions) + ' to ' + str(newSize))
+    savedPixels = (dimensions[0] * dimensions[1]) - (newSize[0] * newSize[1])
+    print('Saved pixels: ' + str(savedPixels))
+
+    return cv.resize(img, newSize)
 
 def randomCentroids(img, k):
     imgRows = img.shape[0]
@@ -116,7 +147,7 @@ def randomCentroids(img, k):
 
     return centroids
 
-def createClusters(img, dummy, centroids):
+def createClusters(img, centroids):
     clusters = []
     for centroid in centroids:
         clusters.append(clst.Cluster(centroid))
@@ -191,7 +222,7 @@ def reasignCentroids(clusters, diff):
     return centroidsDone == len(clusters)
 
 def workImage(img, args):
-    if args.show is None:
+    if args.show is False:
         # Saving image
         cv.imwrite(args.output + '.png', img)
     else:
