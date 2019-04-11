@@ -56,16 +56,16 @@ def main(args):
     toProcess = cv.imread(args.image)
     original = cv.imread(args.image)
 
-
+    # If the image is too large, resize
     if toProcess.shape[0] > args.resize or toProcess.shape[1] > args.resize:
         toProcess = resize(toProcess, args.resize)
 
-    # Dummy image for reference
-    dummy = np.zeros((original.shape[0] + 50, original.shape[1] + 20, 3), np.uint8)
+    # Resulting image
+    result = np.zeros((original.shape[0] + 50, original.shape[1] + 20, 3), np.uint8)
     # Make white
-    dummy[0:original.shape[0] + 50, 0:original.shape[1] + 20] = (255, 255, 255)
+    result[0:original.shape[0] + 50, 0:original.shape[1] + 20] = (255, 255, 255)
 
-    # K-means
+    # k-means
     k = args.k
 
     # Max difference between RGB values to tell if the found mean is correct
@@ -95,7 +95,7 @@ def main(args):
 
 
     print('Making palette...\n')
-    dummy[10:10 + original.shape[0], 10:10 + original.shape[1]] = original[0:original.shape[0], 0:original.shape[1]]
+    result[10:10 + original.shape[0], 10:10 + original.shape[1]] = original[0:original.shape[0], 0:original.shape[1]]
     sep = 10
     gaps = 0
     x = 0
@@ -107,12 +107,12 @@ def main(args):
         yFrom = 10 + original.shape[0] + 5
         yTo = yFrom + 25
 
-        dummy[yFrom:yTo, xFrom:xTo] = cluster.centroid.rgb
+        result[yFrom:yTo, xFrom:xTo] = cluster.centroid.rgb
 
         x = xTo
 
     # Do something with the result
-    workImage(dummy, args)
+    workImage(result, args)
 
 def resize(img, desiredDim):
     dimensions = (img.shape[0], img.shape[1])
@@ -207,6 +207,8 @@ def reasignCentroids(clusters, diff):
 
             j += 1
 
+        # Division by zero is possible, if there no exists any
+        # points for that cluster
         redAverage = redSum / j
         greenAverage = greenSum / j
         blueAverage = blueSum / j
